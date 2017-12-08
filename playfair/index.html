@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Playfair</title>
+    <style>
+        body{
+            padding: 0;
+            margin: 0;
+            background-color: #eee;
+            color: #555;
+        }
+        h1,h2 {
+            text-align: center;
+        }
+        .encryption, .decrypted {
+            text-align: center;
+        }
+        .main-content {
+            display: inline-block;
+            overflow: hidden;
+        }
+        .control {
+            float: left;
+            position: relative;
+            display: inline-block;
+            margin: 0 20px;
+            height: 156px;
+            line-height: 156px;
+        }
+        .control-btn {
+            position: relative;
+        }
+        .tip {
+            position: absolute;
+            font-size: 12px;
+            top: 12px;
+            left: 4px;
+            z-index: -10;
+        }
+    </style>
+</head>
+<body>
+<h1>playfair密码加密与解密</h1>
+<div class="content">
+    <div class="encryption">
+        <h2>加密</h2>
+        <div class="main-content">
+            <textarea id="encryption" cols="40" rows="10" placeholder="请输入要加密的英文" style="padding: 10px;resize: none;float:left;"></textarea>
+            <div class="control">
+                <span>请输入密钥:</span>
+                <input type="text" style="width: 50px" id="cNum">
+                <button class="control-btn" id="encryption-btn">加密</button>
+            </div>
+            <textarea id="hasEncryption" cols="40" rows="10" placeholder="加密后的英文" style="padding: 10px; resize: none;float: left"></textarea>
+        </div>
+    </div>
+    <div class="decrypted">
+        <h2>解密</h2>
+        <div class="main-content">
+            <textarea id="decrypted" cols="40" rows="10" placeholder="请输入要解密的英文" style="resize: none;float:left;"></textarea>
+            <div class="control">
+                <span>请输入密钥:</span>
+                <input id="dNum" type="text" style="width: 50px">
+                <button class="control-btn" id="decrypted-btn">解密</button>
+            </div>
+            <textarea id="hasDecrypted" cols="40" rows="10" placeholder="解密后的英文" style="resize: none;float: left"></textarea>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function () {
+        var util = {
+            allChar: ['a','b','c','d','e','f','g','h','i','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z'],
+            // 判断数组中是否有某个元素
+            contains: function (arr, obj) {
+                var i = arr.length;
+                while (i--) {
+                    if (arr[i] === obj) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+        };
+        var code = {
+            clearText:'',
+            ciphertext:'',
+            pwdTable: [[],[],[],[],[]],
+            sortArry: [],
+            // 获得明文
+            getClearText: function (type) {
+                this.ciphertext = '';
+                if (type === 'cover') {
+                    this.clearText = document.getElementById('encryption').value.toLowerCase().replace(/ /g, '').replace(/j/g, 'i');
+                }
+                if (type === 'decr') {
+                    this.clearText = document.getElementById('decrypted').value.toLowerCase().replace(/ /g, '').replace(/j/g, 'i');
+                }
+            },
+            // 编制密码表
+            getPwdTable: function (type) {
+                var clearTextArry;
+                if (type == 'cover'){
+                    clearTextArry = document.getElementById('cNum').value.replace(/ /g,'').replace(/j/g, 'i').split('');
+                }else if (type == 'decr'){
+                    clearTextArry = document.getElementById('dNum').value.replace(/ /g,'').replace(/j/g, 'i').split('');
+                }
+                var noReapetArr = [];
+                var tempLen = 0;
+                // 获得没有重复的明文字符
+                for (var g = 0;g < clearTextArry.length;g++) {
+                    if (!util.contains(noReapetArr, clearTextArry[g])) {
+                        noReapetArr.push(clearTextArry[g]);
+                    }
+                }
+                for (var i = 0;i < 5;i++) {
+                    for (var j = 0;j < 5;j++) {
+                        // 把明文中的字符填到密码表中
+                        if (tempLen < noReapetArr.length) {
+                            this.pwdTable[i][j] = noReapetArr[tempLen];
+                            tempLen++;
+                        // 把剩下的字母按顺序填写到密码表中
+                        }else {
+                            for (var h = 0,hlen = util.allChar.length;h < hlen;h++) {
+                                var flag = false;
+                                for (var k = 0,len = noReapetArr.length;k < len;k++) {
+                                    if (util.allChar[h] == noReapetArr[k]) {
+                                        flag = true;
+                                    }
+                                }
+                                if (!flag) {
+                                    this.pwdTable[i][j] = util.allChar[h];
+                                    if (j < 4) {
+                                        j = j+1;
+                                    } else {
+                                        if (i < 4) {
+                                            i = i+1;
+                                            j = 0;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                console.log(this.pwdTable);
+            },
+            // 进行分组整理
+            sortClearText: function (type) {
+                this.sortArry = [];
+                var clearTextArry = this.clearText.split('');
+                // 如果成对后有两个相同字母紧挨或最后一个字母是单个的，就插入一个字母X
+                // 明文需要，密文不需要
+                if (type == 'cover') {
+                    for (var i=0;i<clearTextArry.length;) {
+                        if (clearTextArry[i+1]) {
+                            if (clearTextArry[i] == clearTextArry[i+1]) {
+                                clearTextArry.splice(i+1,0,'k');
+                                i = i + 2;
+                            }else {
+                                i = i +1;
+                            }
+                        }else {
+                            if (clearTextArry.length % 2 !== 0) {
+                                clearTextArry.push('k');
+                                break;
+                            } else {
+                                break;
+                            }
+                        }
+                    }
+                }
+                for (var j=0;j<clearTextArry.length;) {
+                    var temp = clearTextArry.splice(0,2);
+                    this.sortArry.push(temp.join(''));
+                }
+                console.log(this.sortArry)
+            },
+            conversion: function (type) {
+                var ciphertextArry = [];
+                var that = this;
+                this.sortArry.forEach(function (item) {
+                    // 记录一组字符的明文在密码表中的位置
+                    var x1 , y1 , x2 , y2 ;
+                    // 记录一组字符的密文在密码表中的位置
+                    var cx1 , cy1 , cx2 , cy2 ;
+                    // 获得明文在密码表中的位置
+                    for (var i=0;i<5;i++) {
+                        for (var j=0;j<5;j++) {
+                            if (item.charAt(0) == that.pwdTable[i][j]) {
+                                x1 = i;
+                                y1 = j;
+                            }
+                            if (item.charAt(1) == that.pwdTable[i][j]) {
+                                x2 = i;
+                                y2 = j;
+                            }
+                        }
+                    }
+                    // 加密：判断每组字符所在位置的关系
+                    if (type == 'cover') {
+                        if (x1 == x2) {
+                            cx1 = x1;
+                            cy1 = (y1 + 1) % 5;
+                            cx2 = x2;
+                            cy2 = (y2 + 1) % 5;
+                        }else if (y1 == y2) {
+                            cy1 = y1;
+                            cx1 = (x1+ 1) % 5;
+                            cy2 = y2;
+                            cx2 = (x2+ 1) % 5;
+                        }else {
+                            cx1 = x1;
+                            cy1 = y2;
+                            cx2 = x2;
+                            cy2 = y1;
+                        }
+                    } else if (type == 'decr') {
+                        if (x1 == x2) {
+                            cx1 = x1;
+                            var temp1 = y1 - 1;
+                            if (temp1 < 0){
+                                cy1 = (y1 - 1 + 5) % 5;
+                            }else {
+                                cy1 = (y1 - 1) % 5;
+                            }
+                            cx2 = x2;
+                            var temp2 = y2 - 1;
+                            if (temp2 < 0){
+                                cy2 = (y2 - 1 + 5) % 5;
+                            }else {
+                                cy2 = (y2 - 1) % 5;
+                            }
+                        }else if (y1 == y2) {
+                            cy1 = y1;
+                            var temp3 = x1 - 1;
+                            if (temp3 < 0) {
+                                cx1 = (x1 - 1 + 5) % 5;
+                            }else {
+                                cx1 = (x1 - 1) % 5;
+                            }
+                            cy2 = y2;
+                            var temp4 = x2 - 1;
+                            if (temp4 < 0) {
+                                cx2 = (x2 - 1 + 5) % 5;
+                            }else {
+                                cx2 = (x2 - 1) % 5;
+                            }
+                        }else {
+                            cx1 = x1;
+                            cy1 = y2;
+                            cx2 = x2;
+                            cy2 = y1;
+                        }
+                    }
+                    console.log(that.pwdTable[cx1][cy1])
+                    ciphertextArry.push(that.pwdTable[cx1][cy1] + that.pwdTable[cx2][cy2]);
+                })
+                if (type == 'cover') {
+                    this.ciphertext = ciphertextArry.join('').toUpperCase();
+                    document.getElementById('hasEncryption').value = this.ciphertext;
+                } else if (type == 'decr') {
+                    this.ciphertext = ciphertextArry.join('').toLowerCase();
+                    document.getElementById('hasDecrypted').value = this.ciphertext;
+                }
+
+            }
+        }
+        // 加密
+        document.getElementById('encryption-btn').addEventListener('click', function () {
+            code.getClearText('cover');
+            code.getPwdTable('cover');
+            code.sortClearText('cover');
+            code.conversion('cover');
+        })
+        // 解密
+        document.getElementById('decrypted-btn').addEventListener('click', function () {
+            code.getClearText('decr');
+            code.getPwdTable('decr');
+            code.sortClearText();
+            code.conversion('decr');
+        })
+
+    }())
+</script>
+</body>
+</html>

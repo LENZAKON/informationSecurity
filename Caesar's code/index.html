@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>凯撒密码</title>
+    <style>
+        body{
+            padding: 0;
+            margin: 0;
+            background-color: #eee;
+            color: #555;
+        }
+        h1,h2 {
+            text-align: center;
+        }
+        .encryption, .decrypted {
+            text-align: center;
+        }
+        .main-content {
+            display: inline-block;
+            overflow: hidden;
+        }
+        .control {
+            float: left;
+            position: relative;
+            display: inline-block;
+            margin: 0 20px;
+            height: 156px;
+            line-height: 156px;
+        }
+        .control-btn {
+            position: relative;
+        }
+        .tip {
+            position: absolute;
+            font-size: 12px;
+            top: 12px;
+            left: 4px;
+            z-index: -10;
+        }
+    </style>
+</head>
+<body>
+<h1>凯撒密码加密与解密</h1>
+<div class="content">
+    <div class="encryption">
+        <h2>加密</h2>
+        <div class="main-content">
+            <textarea id="encryption" cols="40" rows="10" placeholder="请输入要加密的英文" style="padding: 10px;resize: none;float:left;"></textarea>
+            <div class="control">
+                <span>请输入整数偏移量:</span>
+                <input type="text" style="width: 30px" id="cNum">
+                <button class="control-btn" id="encryption-btn">加密</button>
+            </div>
+            <textarea id="hasEncryption" cols="40" rows="10" placeholder="加密后的英文" style="padding: 10px; resize: none;float: left"></textarea>
+        </div>
+    </div>
+    <div class="decrypted">
+        <h2>解密</h2>
+        <div class="main-content">
+            <textarea id="decrypted" cols="40" rows="10" placeholder="请输入要解密的英文" style="resize: none;float:left;"></textarea>
+            <div class="control">
+                <span>请输入整数偏移量:</span>
+                <input id="dNum" type="text" style="width: 30px">
+                <button class="control-btn" id="decrypted-btn">解密</button>
+            </div>
+            <textarea id="hasDecrypted" cols="40" rows="10" placeholder="解密后的英文" style="resize: none;float: left"></textarea>
+        </div>
+    </div>
+</div>
+<script>
+    (function () {
+        // 在转化成密文的时候先把字符转化成数字便于和偏移量相加
+        var keysCode1 = {
+            'a':1,'b':2,'c':3,'d':4,'e':5,'f':6,'g':7,'h':8,'i':9,'j':10,'k':11,'l':12,'m':13,'n':14,'o':15,'p':16,'q':17,'r':18,'s':19,'t':20,'u':21,'v':22,'w':23,'x':24,'y':25,'z':26
+        };
+        // 把数字转化成字符
+        var keysCode2 = {
+            1:'a',2:'b',3:'c',4:'d',5:'e',6:'f',7:'g',8:'h',9:'i',10:'j',11:'k',12:'l',13:'m',14:'n',15:'o',16:'p',17:'q',18:'r',19:'s',20:'t',21:'u',22:'v',23:'w',24:'x',25:'y',26:'z'
+        }
+        var code = {
+            clearText: '',
+            ciphertext: '',
+            ciphertextNumArry: [],
+            // 获得明文
+            getClearText: function (type) {
+                this.ciphertext = '';
+                if (type === 'cover') {
+                    this.clearText = document.getElementById('encryption').value;
+                }
+                if (type === 'decr') {
+                    this.clearText = document.getElementById('decrypted').value;
+                }
+            },
+            conversion: function (type) {
+                this.clearText = this.clearText.toLowerCase();
+                var clearTextArry = [];
+                var clearTextNumArry = [];
+                var ciphertextNumArry = [];
+                // 获得加密的偏移量
+                var coverNum = parseInt(document.getElementById("cNum").value);
+                // 获得解密的偏移量
+                var decrNum = parseInt(document.getElementById("dNum").value);
+                for (var i=0;i<this.clearText.length;i++) {
+                    clearTextArry.push(this.clearText.charAt(i));
+                }
+                clearTextArry.forEach(function (item) {
+                    // 判断明文中是否有数字，防止在转化的时候把数字也转化成字符
+                    if (isNaN(parseInt(item))) {
+                        // 明文中的字符
+                        // 明文中的a~z字符
+                        if (keysCode1[item]) {
+                            clearTextNumArry.push(keysCode1[item]);
+                        }else {
+                            // 明文中的非a~z字符
+                            clearTextNumArry.push(item);
+                        }
+                        // 明文中的数字
+                    } else {
+                        clearTextNumArry.push(item);
+                    }
+                })
+                clearTextNumArry.forEach(function (item) {
+                    // 加密
+                    if (type === 'cover') {
+                        // 把数字转化成字符
+                        if (typeof item === 'number') {
+                            // 通过加上偏移量取模获得的密文对应的数字
+                            if (!((item + coverNum) % 26)) {
+                                ciphertextNumArry.push(item + coverNum);
+                            } else {
+                                ciphertextNumArry.push((item + coverNum) % 26);
+                            }
+                        } else {
+                            ciphertextNumArry.push(item);
+                        }
+                    }
+                    // 解密
+                    if (type === 'decr') {
+                        // 把数字转化成字符
+                        if (typeof item === 'number') {
+                            // 通过加上偏移量取模获得的密文对应的数字
+                            if (!((item - decrNum) % 26)) {
+                                ciphertextNumArry.push(item - decrNum + 26);
+                            } else {
+                                var num = (item - decrNum) % 26;
+                                if (num < 0) {
+                                    num = num + 26;
+                                }
+                                ciphertextNumArry.push(num);
+                            }
+                        } else {
+                            ciphertextNumArry.push(item);
+                        }
+                    }
+                })
+                this.ciphertextNumArry = ciphertextNumArry;
+            },
+            getCiphertext: function () {
+                var ciphertextArry = [];
+                // 通过密文数字获得密文
+                this.ciphertextNumArry.forEach(function (item) {
+                    // 把数字转化成字符
+                    if (typeof item === 'number') {
+                        ciphertextArry.push(keysCode2[item]);
+                        // 保留原来的字符
+                    }else {
+                        ciphertextArry.push(item);
+                    }
+                })
+                this.ciphertext += ciphertextArry;
+                return this.ciphertext.replace(/,/g,'');
+            }
+        };
+        // 加密
+        document.getElementById('encryption-btn').addEventListener('click', function () {
+            code.getClearText('cover');
+            code.conversion('cover');
+            document.getElementById('hasEncryption').value = code.getCiphertext();
+        })
+        // 解密
+        document.getElementById('decrypted-btn').addEventListener('click', function () {
+            code.getClearText('decr');
+            code.conversion('decr');
+            document.getElementById('hasDecrypted').value = code.getCiphertext();
+        })
+    }())
+</script>
+</body>
+</html>

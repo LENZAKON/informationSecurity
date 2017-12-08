@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>hill密码</title>
+    <style>
+        body{
+            padding: 0;
+            margin: 0;
+            background-color: #eee;
+            color: #555;
+        }
+        h1,h2 {
+            text-align: center;
+        }
+        .encryption, .decrypted {
+            text-align: center;
+        }
+        .main-content {
+            display: inline-block;
+            overflow: hidden;
+        }
+        .control {
+            float: left;
+            position: relative;
+            display: inline-block;
+            margin: 0 20px;
+            height: 156px;
+            line-height: 156px;
+        }
+        .text{
+            position: relative;
+            bottom: 40px;
+        }
+        .control-btn {
+            position: absolute;
+            bottom: 30px;
+            right: 0px;
+        }
+        .tip {
+            position: absolute;
+            font-size: 12px;
+            top: 12px;
+            left: 4px;
+            z-index: -10;
+        }
+    </style>
+</head>
+<body>
+<h1>hill密码加密与解密</h1>
+<div class="content">
+    <div class="encryption">
+        <h2>加密</h2>
+        <div class="main-content">
+            <textarea id="encryption" cols="40" rows="10" placeholder="请输入要加密的英文" style="padding: 10px;resize: none;float:left;"></textarea>
+            <div class="control">
+                <span class="text">请输入3*3密钥矩阵:</span>
+                <textarea id="cNum" cols="20" rows="6"></textarea>
+                <button class="control-btn" id="encryption-btn">加密</button>
+            </div>
+            <textarea id="hasEncryption" cols="40" rows="10" placeholder="加密后的英文" style="padding: 10px; resize: none;float: left"></textarea>
+        </div>
+    </div>
+    <div class="decrypted">
+        <h2>解密</h2>
+        <h5 style="text-align: center;margin: 0">适用于简单密钥矩阵,如：</h5>
+        <h5 style="text-align: center;margin: 0">1 2 3</h5>
+        <h5 style="text-align: center;margin: 0">1 1 2</h5>
+        <h5 style="text-align: center;margin: 0">0 1 2</h5>
+        <div class="main-content">
+            <textarea id="decrypted" cols="40" rows="10" placeholder="请输入要解密的英文" style="resize: none;float:left;"></textarea>
+            <div class="control">
+                <span class="text">请输入3*3密钥矩阵:</span>
+                <textarea id="dNum" cols="20" rows="6"></textarea>
+                <button class="control-btn" id="decrypted-btn">解密</button>
+            </div>
+            <textarea id="hasDecrypted" cols="40" rows="10" placeholder="解密后的英文" style="resize: none;float: left"></textarea>
+        </div>
+    </div>
+    <div class="decrypted">
+        <h2>解密</h2>
+        <div class="main-content">
+            <textarea id="backdecrypted" cols="40" rows="10" placeholder="请输入要解密的英文" style="resize: none;float:left;"></textarea>
+            <div class="control">
+                <span class="text">请输入复杂矩阵的逆矩阵:</span>
+                <textarea id="backdNum" cols="20" rows="6"></textarea>
+                <button class="control-btn" id="backdecrypted-btn">解密</button>
+            </div>
+            <textarea id="backhasDecrypted" cols="40" rows="10" placeholder="解密后的英文" style="resize: none;float: left"></textarea>
+        </div>
+    </div>
+</div>
+</body>
+<script>
+    (function () {
+        // 兼容forEach
+        if (!Array.prototype.forEach) {
+            Array.prototype.forEach = function(callback, thisArg) {
+                var T, k;
+                if (this == null) {
+                    throw new TypeError(" this is null or not defined");
+                }
+                var O = Object(this);
+                var len = O.length >>> 0; // Hack to convert O.length to a UInt32
+                if ({}.toString.call(callback) != "[object Function]") {
+                    throw new TypeError(callback + " is not a function");
+                }
+                if (thisArg) {
+                    T = thisArg;
+                }
+                k = 0;
+                while (k < len) {
+                    var kValue;
+                    if (k in O) {
+                        kValue = O[k];
+                        callback.call(T, kValue, k, O);
+                    }
+                    k++;
+                }
+            };
+        }
+        // 在转化成密文的时候先把字符转化成数字
+        var keysCode1 = {
+            'a':0,'b':1,'c':2,'d':3,'e':4,'f':5,'g':6,'h':7,'i':8,'j':9,'k':10,'l':11,'m':12,'n':13,'o':14,'p':15,'q':16,'r':17,'s':18,'t':19,'u':20,'v':21,'w':22,'x':23,'y':24,'z':25
+        };
+        // 把数字转化成字符
+        var keysCode2 = {
+            0:'a',1:'b',2:'c',3:'d',4:'e',5:'f',6:'g',7:'h',8:'i',9:'j',10:'k',11:'l',12:'m',13:'n',14:'o',15:'p',16:'q',17:'r',18:'s',19:'t',20:'u',21:'v',22:'w',23:'x',24:'y',25:'z'
+        }
+        var util = {
+            // 伴随矩阵
+            adjMat: [],
+            // 矩阵阶数
+            ORDER: 3,
+            // 转置伴随矩阵
+            transpseMat: [],
+            // 行列式
+            determinant:'',
+            // 逆矩阵
+            inverMat:[],
+            // 求密钥矩阵的逆矩阵
+            init: function (matrix) {
+                this.adjMat = [];
+                this.transpseMat = [];
+                this.inverMat = [];
+                this.getAdjMat(matrix);
+                this.getDeterminant(matrix);
+                this.getInverMat();
+            },
+            // 求伴随矩阵
+            getAdjMat: function (matrix) {
+                // 确定矩阵的行数
+                for (var i = 0;i < matrix.length;i++) {
+                    this.adjMat.push([]);
+                    this.transpseMat.push([]);
+                    this.inverMat.push([]);
+                }
+                for (var j = 1;j < this.ORDER + 1;j++) {
+                    for (var g = 1;g < this.ORDER + 1;g++) {
+                        // -1 的指数
+                        var tempIndex;
+                        var tempRowArry = [1,2,3];
+                        var tempColArry = [1,2,3];
+                        if ((j + g) % 2 == 0){
+                            tempIndex = 1;
+                        }else {
+                            tempIndex = -1;
+                        }
+                        tempRowArry.forEach(function (item, index) {
+                            if (item == j){
+                                tempRowArry.splice(index, 1);
+                            }
+                        })
+                        tempColArry.forEach(function (item, index) {
+                            if (item == g){
+                                tempColArry.splice(index, 1);
+                            }
+                        })
+                        var firRowNum = tempRowArry.shift();
+                        var secRowNum = tempRowArry.shift();
+                        var firColNum = tempColArry.shift();
+                        var secColNum = tempColArry.shift();
+//                        console.log(firRowNum + ' '+secRowNum);
+//                        console.log('-------')
+//                        console.log(firColNum + ' '+secColNum);
+//                        console.log('-------')
+                        this.adjMat[g-1][j-1] = tempIndex * ((matrix[firRowNum - 1][firColNum - 1] * matrix[secRowNum - 1][secColNum - 1]) - (matrix[firRowNum - 1][secColNum - 1] * matrix[secRowNum - 1][firColNum - 1]))
+                        console.log(this.adjMat[g-1][j-1])
+                        this.transpseMat[j-1][g-1] = tempIndex * ((matrix[firRowNum - 1][firColNum - 1] * matrix[secRowNum - 1][secColNum - 1]) - (matrix[firRowNum - 1][secColNum - 1] * matrix[secRowNum - 1][firColNum - 1]))
+                    }
+                }
+                console.log(this.adjMat);
+                console.log(this.transpseMat);
+            },
+            getDeterminant: function (matrix) {
+                this.determinant = matrix[0][0] * matrix[1][1] * matrix[2][2] - matrix[0][0] * matrix[2][1] * matrix[1][2] + matrix[1][0] * matrix[2][1] * matrix[0][2] - matrix[1][0] * matrix[0][1] * matrix[2][2] + matrix[2][0] * matrix[0][1] * matrix[1][2] - matrix[2][0] * matrix[1][1] * matrix[0][2];
+                console.log('行列式');
+                console.log(this.determinant);
+            },
+            getInverMat: function () {
+                for (var i=0;i<3;i++) {
+                    for (var j=0;j<3;j++) {
+                        this.inverMat[i][j] = this.adjMat[i][j] / this.determinant;
+                    }
+                }
+                console.log('逆矩阵');
+                console.log(this.inverMat);
+            }
+        }
+        var code = {
+            clearText: '',
+            ciphertext: '',
+            matrixArry: [[], [], []],
+            // 获得明文
+            getClearText: function (type) {
+                this.ciphertext = '';
+                if (type === 'cover') {
+                    this.clearText = document.getElementById('encryption').value.toLowerCase().replace(/ /g, '');
+                }
+                if (type === 'decr') {
+                    this.clearText = document.getElementById('decrypted').value.toLowerCase().replace(/ /g, '');
+                }
+                if(type === 'back') {
+                    this.clearText = document.getElementById('backdecrypted').value.toLowerCase().replace(/ /g, '');
+                }
+            },
+            // 获得加密矩阵,并把加密矩阵转化成数组
+            getMatrix: function (type) {
+                var matrixTextArry;
+                if (type == 'cover'){
+                    matrixTextArry = document.getElementById('cNum').value.replace(/<\/?.+?>/g," ").replace(/[\r\n]/g, " ").split(' ');
+                } else if (type == 'decr') {
+                    matrixTextArry = document.getElementById('dNum').value.replace(/<\/?.+?>/g," ").replace(/[\r\n]/g, " ").split(' ');
+                } else if (type == 'back') {
+                    matrixTextArry = document.getElementById('backdNum').value.replace(/<\/?.+?>/g," ").replace(/[\r\n]/g, " ").split(' ');
+                }
+                var len = 0;
+                for (var i = 0;i < 3;i++) {
+                    for (var j = 0;j < 3;j++) {
+                        this.matrixArry[i][j] = parseInt(matrixTextArry[len++]);
+                    }
+                }
+                console.log(this.matrixArry)
+            },
+            // 转化
+            conversion: function (type) {
+                var tempClearArry = this.clearText.split('');
+                var tempSortCleArry = [];
+                var tempSortNumCleArry = [];
+                // 如果明文被3除以后还余1，则添加两个x
+                if (tempClearArry.length % 3 == 1) {
+                    tempClearArry.push('x');
+                    tempClearArry.push('x');
+                // 如果明文被3除以后还余2，则添加一个x
+                }else if (tempClearArry.length % 3 == 2) {
+                    tempClearArry.push('x');
+                }
+                while (tempClearArry.length > 0) {
+                    var three = tempClearArry.splice(0,3);
+                    tempSortCleArry.push(three.join(''));
+                }
+                console.log(tempSortCleArry);
+                // 把明文中的字母转化成数字
+                tempSortCleArry.forEach(function (item) {
+                    var tempArry = [];
+                    tempArry.push(keysCode1[item.charAt(0)]);
+                    tempArry.push(keysCode1[item.charAt(1)]);
+                    tempArry.push(keysCode1[item.charAt(2)]);
+                    tempSortNumCleArry.push(tempArry);
+                })
+                console.log(tempSortNumCleArry)
+                // 矩阵计算，获得密文字母对应的数字
+                var tempSortNumCleArryRows = tempSortNumCleArry.length;
+                var tempSortNumCleArryCols = 3;
+                var numDecrArry = [];
+                for (var g = 0;g < tempSortNumCleArryRows;g++) {
+                    numDecrArry.push([]);
+                }
+                for (var i = 0;i < tempSortNumCleArryRows;i++) {
+                    for (var j = 0;j <tempSortNumCleArryCols; j++) {
+                        if (type == 'cover' || type == 'back'){
+                            var temp = this.matrixArry[j][0] * tempSortNumCleArry[i][0] + this.matrixArry[j][1] * tempSortNumCleArry[i][1] + this.matrixArry[j][2] * tempSortNumCleArry[i][2];
+                            while (temp < 0) {
+                                temp = temp + 26;
+                            }
+                            numDecrArry[i][j] = temp % 26;
+                        }else if (type == 'decr'){
+                            var temp = util.inverMat[j][0] * tempSortNumCleArry[i][0] + util.inverMat[j][1] * tempSortNumCleArry[i][1] + util.inverMat[j][2] * tempSortNumCleArry[i][2];
+                            while (temp < 0) {
+                                temp = temp + 26;
+                            }
+                            numDecrArry[i][j] = temp % 26;
+                        }
+                    }
+                }
+                console.log(numDecrArry)
+                // 把密文数字转化成字母
+                var textDecrArry = [];
+                for (var k = 0;k < numDecrArry.length;k++) {
+                    textDecrArry.push([]);
+                }
+                for (var i = 0;i < tempSortNumCleArryRows; i++){
+                    for (var j = 0;j <tempSortNumCleArryCols; j++) {
+                        textDecrArry[i][j] = keysCode2[numDecrArry[i][j]];
+                    }
+                }
+                console.log(textDecrArry);
+                // 把密文数组转化成密文字符串
+                var tempDecrArry = [];
+                for (var i = 0;i < textDecrArry.length; i++) {
+                    tempDecrArry.push(textDecrArry[i].join(''));
+                }
+                this.ciphertext = tempDecrArry.join('');
+                console.log(this.ciphertext);
+            }
+        }
+        // 加密
+        document.getElementById('encryption-btn').addEventListener('click', function () {
+            code.getClearText('cover');
+            code.getMatrix('cover');
+            code.conversion('cover');
+            document.getElementById('hasEncryption').value = code.ciphertext;
+        })
+        // 解密
+        document.getElementById('decrypted-btn').addEventListener('click', function () {
+            code.getClearText('decr');
+            code.getMatrix('decr');
+            util.init(code.matrixArry);
+            code.conversion('decr');
+            document.getElementById('hasDecrypted').value = code.ciphertext.toLowerCase();
+        })
+
+        document.getElementById('backdecrypted-btn').addEventListener('click', function () {
+            code.getClearText('back');
+            code.getMatrix('back');
+            code.conversion('back');
+            document.getElementById('backhasDecrypted').value = code.ciphertext;
+        })
+    }())
+</script>
+</html>
